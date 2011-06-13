@@ -1171,6 +1171,9 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	omap_domain->iommu_dev = oiommu;
 
+	/* temporary workaround */
+	clk_enable(oiommu->clk);
+
 out:
 	mutex_unlock(&omap_domain->lock);
 	return ret;
@@ -1195,6 +1198,9 @@ static void omap_iommu_detach_dev(struct iommu_domain *domain,
 	omap_iommu_detach(oiommu);
 
 	omap_domain->iommu_dev = NULL;
+
+	/* temporary workaround */
+	clk_disable(oiommu->clk);
 
 out:
 	mutex_unlock(&omap_domain->lock);
