@@ -1086,6 +1086,9 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	omap_domain->dev = dev;
 	oiommu->domain = domain;
 
+	/* temporary workaround */
+	clk_enable(oiommu->clk);
+
 out:
 	spin_unlock(&omap_domain->lock);
 	return ret;
@@ -1115,9 +1118,14 @@ static void omap_iommu_detach_dev(struct iommu_domain *domain,
 				 struct device *dev)
 {
 	struct omap_iommu_domain *omap_domain = domain->priv;
+	struct omap_iommu *oiommu = dev_to_omap_iommu(dev);
 
 	spin_lock(&omap_domain->lock);
 	_omap_iommu_detach_dev(omap_domain, dev);
+
+	/* temporary workaround */
+	clk_disable(oiommu->clk);
+
 	spin_unlock(&omap_domain->lock);
 }
 
