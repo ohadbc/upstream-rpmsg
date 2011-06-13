@@ -343,9 +343,10 @@ static const struct iommu_functions omap2_iommu_ops = {
 
 static int __init omap2_iommu_init(void)
 {
+	pr_info("%s\n", __func__);
 	return install_iommu_arch(&omap2_iommu_ops);
 }
-module_init(omap2_iommu_init);
+arch_initcall(omap2_iommu_init);
 
 static void __exit omap2_iommu_exit(void)
 {
