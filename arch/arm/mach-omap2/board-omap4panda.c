@@ -551,8 +551,33 @@ static struct omap_dss_board_info omap4_panda_dss_data = {
 
 void omap4_panda_display_init(void)
 {
-	omap4_panda_hdmi_mux_init();
-	omap_display_init(&omap4_panda_dss_data);
+	//omap4_panda_hdmi_mux_init();
+	//omap_display_init(&omap4_panda_dss_data);
+}
+
+static struct gpio panda_wl12xx_gpios[] __initdata = {
+	{ GPIO_WIFI_PMENA,	GPIOF_OUT_INIT_HIGH,  "wl12xx_power"  },
+	{ GPIO_WIFI_IRQ,	GPIOF_IN,  "wl12xx_irq" },
+};
+
+static void __init omap4_panda_wl12xx_init(void)
+{
+	int ret;
+
+	pr_info("yaya\n");
+	omap_mux_init_signal("gpmc_a19.gpio_43", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("gpmc_a19.gpio_53", OMAP_PIN_INPUT);
+
+	ret = gpio_request_array(panda_wl12xx_gpios,
+				 ARRAY_SIZE(panda_wl12xx_gpios));
+	if (ret) {
+		pr_err("Unable to initialize wl12xx gpios\n");
+		return;
+	}
+
+	ret = wl12xx_set_platform_data(&omap_panda_wlan_data);
+	if (ret)
+		pr_err("Error setting wl12xx data: %d\n", ret);
 }
 
 static void __init omap4_panda_init(void)
@@ -562,9 +587,7 @@ static void __init omap4_panda_init(void)
 	if (omap_rev() == OMAP4430_REV_ES1_0)
 		package = OMAP_PACKAGE_CBL;
 	omap4_mux_init(board_mux, NULL, package);
-
-	if (wl12xx_set_platform_data(&omap_panda_wlan_data))
-		pr_err("error setting wl12xx data\n");
+	omap4_panda_wl12xx_init();
 
 	omap4_panda_i2c_init();
 	platform_add_devices(panda_devices, ARRAY_SIZE(panda_devices));
