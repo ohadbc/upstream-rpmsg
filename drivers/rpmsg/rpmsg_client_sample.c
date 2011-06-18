@@ -37,25 +37,23 @@ static void rpmsg_sample_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		dev_info(&rpdev->dev, "goodbye!\n");
 		return;
 	}
-
-	/* send a new message now */
-	err = rpmsg_send(rpdev, MSG, strlen(MSG));
-	if (err)
-		pr_err("rpmsg_send failed: %d\n", err);
 }
 
 static int rpmsg_sample_probe(struct rpmsg_channel *rpdev)
 {
-	int err;
+	int err, i;
 
 	dev_info(&rpdev->dev, "new channel: 0x%x <-> 0x%x!\n",
 			rpdev->src, rpdev->dst);
 
 	/* send a message to our remote processor */
+	for (i = 0; i < 1000; i++) {
+	dev_info(&rpdev->dev, "sending msg %d\n", i);
 	err = rpmsg_send(rpdev, MSG, strlen(MSG));
 	if (err) {
 		pr_err("rpmsg_send failed: %d\n", err);
 		return err;
+	}
 	}
 
 	return 0;
