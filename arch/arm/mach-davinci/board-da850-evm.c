@@ -41,6 +41,7 @@
 #include <mach/mux.h>
 #include <mach/aemif.h>
 #include <mach/spi.h>
+#include <mach/remoteproc.h>
 
 #define DA850_EVM_PHY_ID		"0:00"
 #define DA850_LCD_PWR_PIN		GPIO_TO_PIN(2, 8)
@@ -158,6 +159,20 @@ static struct platform_device da850_evm_norflash_device = {
 	},
 	.num_resources	= 1,
 	.resource	= da850_evm_norflash_resource,
+};
+
+static struct davinci_rproc_pdata da850_dsp_rproc_pdata = {
+	.name		= "dsp",
+	.firmware	= "davinci-dsp.bin",
+	.clk_name	= "dsp",
+};
+
+static struct platform_device da850_dsp_rproc_device = {
+	.name		= "davinci-rproc",
+	.id		= 0,
+	.dev		= {
+		.platform_data  = &da850_dsp_rproc_pdata,
+	},
 };
 
 static struct davinci_pm_config da850_pm_pdata = {
@@ -1175,6 +1190,10 @@ static __init void da850_evm_init(void)
 
 	i2c_register_board_info(1, da850_evm_i2c_devices,
 			ARRAY_SIZE(da850_evm_i2c_devices));
+
+	ret = platform_device_register(&da850_dsp_rproc_device);
+	if (ret)
+		pr_warning("Could not register dsp: %d\n", ret);
 
 	/*
 	 * shut down uart 0 and 1; they are not used on the board and
