@@ -20,6 +20,7 @@
 #include <mach/cp_intc.h>
 #include <mach/da8xx.h>
 #include <mach/mux.h>
+#include <mach/remoteproc.h>
 
 #define HAWKBOARD_PHY_ID		"0:07"
 #define DA850_HAWK_MMCSD_CD_PIN		GPIO_TO_PIN(3, 12)
@@ -243,6 +244,20 @@ static irqreturn_t omapl138_hawk_usb_ocic_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static struct davinci_rproc_pdata hawk_dsp_rproc_pdata = {
+	.name		= "dsp",
+	.firmware	= "davinci-dsp.bin",
+	.clk_name	= "dsp",
+};
+
+static struct platform_device hawk_dsp_rproc_device = {
+	.name		= "davinci-rproc",
+	.id		= 0,
+	.dev		= {
+		.platform_data  = &hawk_dsp_rproc_pdata,
+	},
+};
+
 static __init void omapl138_hawk_usb_init(void)
 {
 	int ret;
@@ -319,6 +334,10 @@ static __init void omapl138_hawk_init(void)
 		pr_warning("omapl138_hawk_init: "
 			"watchdog registration failed: %d\n",
 			ret);
+
+	ret = platform_device_register(&hawk_dsp_rproc_device);
+	if (ret)
+		pr_warning("failed to register dsp: %d\n", ret);
 }
 
 #ifdef CONFIG_SERIAL_8250_CONSOLE
