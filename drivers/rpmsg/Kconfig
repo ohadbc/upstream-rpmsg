@@ -4,3 +4,4 @@ config RPMSG
 	select VIRTIO
 	select VIRTIO_RING
 
+source "drivers/rpmsg/host/Kconfig"
