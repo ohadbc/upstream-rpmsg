@@ -47,6 +47,7 @@ struct iommu_ops {
 				    unsigned long iova);
 	int (*domain_has_cap)(struct iommu_domain *domain,
 			      unsigned long cap);
+	void (*commit)(struct iommu_domain *domain);
 };
 
 #ifdef CONFIG_IOMMU_API
@@ -67,6 +68,7 @@ extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain,
 				      unsigned long iova);
 extern int iommu_domain_has_cap(struct iommu_domain *domain,
 				unsigned long cap);
+extern void iommu_commit(struct iommu_domain *domain);
 
 #else /* CONFIG_IOMMU_API */
 
@@ -121,6 +123,10 @@ static inline int domain_has_cap(struct iommu_domain *domain,
 				 unsigned long cap)
 {
 	return 0;
+}
+
+static inline void iommu_commit(struct iommu_domain *domain)
+{
 }
 
 #endif /* CONFIG_IOMMU_API */
