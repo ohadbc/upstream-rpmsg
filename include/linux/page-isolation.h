@@ -34,6 +34,8 @@ extern int set_migratetype_isolate(struct page *page);
 extern void unset_migratetype_isolate(struct page *page);
 extern unsigned long alloc_contig_freed_pages(unsigned long start,
 					      unsigned long end, gfp_t flag);
+extern int alloc_contig_range(unsigned long start, unsigned long end,
+			      gfp_t flags);
 extern void free_contig_pages(struct page *page, int nr_pages);
 
 /*
