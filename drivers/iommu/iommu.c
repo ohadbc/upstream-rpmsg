@@ -122,3 +122,10 @@ int iommu_unmap(struct iommu_domain *domain, unsigned long iova, int gfp_order)
 	return iommu_ops->unmap(domain, iova, gfp_order);
 }
 EXPORT_SYMBOL_GPL(iommu_unmap);
+
+void iommu_commit(struct iommu_domain *domain)
+{
+	if (iommu_ops->commit)
+		iommu_ops->commit(domain);
+}
+EXPORT_SYMBOL_GPL(iommu_commit);
