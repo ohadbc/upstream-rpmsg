@@ -25,6 +25,8 @@
 #define IOMMU_WRITE	(2)
 #define IOMMU_CACHE	(4) /* DMA cache coherency */
 
+struct iommu_ops;
+struct bus_type;
 struct device;
 struct iommu_domain;
 
@@ -36,12 +38,15 @@ typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 				struct device *, unsigned long, int);
 
 struct iommu_domain {
+	struct iommu_ops *ops;
 	void *priv;
 	iommu_fault_handler_t handler;
 };
 
 #define IOMMU_CAP_CACHE_COHERENCY	0x1
 #define IOMMU_CAP_INTR_REMAP		0x2	/* isolates device intrs */
+
+#ifdef CONFIG_IOMMU_API
 
 struct iommu_ops {
 	int (*domain_init)(struct iommu_domain *domain);
@@ -59,11 +64,9 @@ struct iommu_ops {
 	void (*commit)(struct iommu_domain *domain);
 };
 
-#ifdef CONFIG_IOMMU_API
-
-extern void register_iommu(struct iommu_ops *ops);
-extern bool iommu_found(void);
-extern struct iommu_domain *iommu_domain_alloc(void);
+extern int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops);
+extern bool iommu_present(struct bus_type *bus);
+extern struct iommu_domain *iommu_domain_alloc(struct bus_type *bus);
 extern void iommu_domain_free(struct iommu_domain *domain);
 extern int iommu_attach_device(struct iommu_domain *domain,
 			       struct device *dev);
@@ -100,11 +103,15 @@ extern void iommu_set_fault_handler(struct iommu_domain *domain,
  * Returns 0 on success and an appropriate error code otherwise (if dynamic
  * PTE/TLB loading will one day be supported, implementations will be able
  * to tell whether it succeeded or not according to this return value).
+ *
+ * Specifically, -ENOSYS is returned if a fault handler isn't installed
+ * (though fault handlers can also return -ENOSYS, in case they want to
+ * elicit the default behavior of the IOMMU drivers).
  */
 static inline int report_iommu_fault(struct iommu_domain *domain,
 		struct device *dev, unsigned long iova, int flags)
 {
-	int ret = 0;
+	int ret = -ENOSYS;
 
 	/*
 	 * if upper layers showed interest and installed a fault handler,
@@ -118,16 +125,14 @@ static inline int report_iommu_fault(struct iommu_domain *domain,
 
 #else /* CONFIG_IOMMU_API */
 
-static inline void register_iommu(struct iommu_ops *ops)
-{
-}
+struct iommu_ops {};
 
-static inline bool iommu_found(void)
+static inline bool iommu_present(struct bus_type *bus)
 {
 	return false;
 }
 
-static inline struct iommu_domain *iommu_domain_alloc(void)
+static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
 {
 	return NULL;
 }
