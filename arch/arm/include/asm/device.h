@@ -13,6 +13,9 @@ struct dev_archdata {
 #ifdef CONFIG_CMA
 	struct cma *cma_area;
 #endif
+#ifdef CONFIG_IOMMU_API
+	void *iommu; /* private IOMMU data */
+#endif
 };
 
 struct omap_device;
