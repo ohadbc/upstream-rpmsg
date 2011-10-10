@@ -193,6 +193,8 @@ int kvm_assign_device(struct kvm *kvm,
 		PCI_SLOT(assigned_dev->host_devfn),
 		PCI_FUNC(assigned_dev->host_devfn));
 
+	iommu_commit(domain);
+
 	return 0;
 out_unmap:
 	kvm_iommu_unmap_memslots(kvm);
@@ -221,6 +223,8 @@ int kvm_deassign_device(struct kvm *kvm,
 		PCI_SLOT(assigned_dev->host_devfn),
 		PCI_FUNC(assigned_dev->host_devfn));
 
+	iommu_commit(domain);
+
 	return 0;
 }
 
@@ -228,12 +232,12 @@ int kvm_iommu_map_guest(struct kvm *kvm)
 {
 	int r;
 
-	if (!iommu_found()) {
+	if (!iommu_present(&pci_bus_type)) {
 		printk(KERN_ERR "%s: iommu not found\n", __func__);
 		return -ENODEV;
 	}
 
-	kvm->arch.iommu_domain = iommu_domain_alloc();
+	kvm->arch.iommu_domain = iommu_domain_alloc(&pci_bus_type);
 	if (!kvm->arch.iommu_domain)
 		return -ENOMEM;
 
@@ -252,6 +256,8 @@ int kvm_iommu_map_guest(struct kvm *kvm)
 	r = kvm_iommu_map_memslots(kvm);
 	if (r)
 		goto out_unmap;
+
+	iommu_commit(kvm->arch.iommu_domain);
 
 	return 0;
 
@@ -301,6 +307,8 @@ static void kvm_iommu_put_pages(struct kvm *kvm,
 
 		gfn += unmap_pages;
 	}
+
+	iommu_commit(domain);
 }
 
 static int kvm_iommu_unmap_memslots(struct kvm *kvm)
