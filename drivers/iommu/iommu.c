@@ -189,7 +189,7 @@ EXPORT_SYMBOL_GPL(iommu_unmap);
 
 void iommu_commit(struct iommu_domain *domain)
 {
-	if (iommu_ops->commit)
-		iommu_ops->commit(domain);
+	if (domain->ops->commit)
+		domain->ops->commit(domain);
 }
 EXPORT_SYMBOL_GPL(iommu_commit);
