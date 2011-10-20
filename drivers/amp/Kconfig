@@ -1,0 +1,9 @@
+#
+# AMP subsystem configuration
+#
+
+menu "Asymmetric Multiprocessing (AMP) Framework"
+
+source "drivers/amp/remoteproc/Kconfig"
+
+endmenu
