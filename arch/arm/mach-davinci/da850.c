@@ -75,6 +75,13 @@ static struct clk pll0_aux_clk = {
 	.flags		= CLK_PLL | PRE_PLL,
 };
 
+static struct clk pll0_sysclk1 = {
+	.name		= "pll0_sysclk1",
+	.parent		= &pll0_clk,
+	.flags		= CLK_PLL,
+	.div_reg	= PLLDIV1,
+};
+
 static struct clk pll0_sysclk2 = {
 	.name		= "pll0_sysclk2",
 	.parent		= &pll0_clk,
@@ -382,6 +389,12 @@ static struct clk sata_clk = {
 	.flags		= PSC_FORCE,
 };
 
+static struct clk dsp_clk = {
+	.name		= "dsp",
+	.parent		= &pll0_sysclk1,
+	.lpsc		= DA8XX_LPSC0_GEM,
+};
+
 static struct clk_lookup da850_clks[] = {
 	CLK(NULL,		"ref",		&ref_clk),
 	CLK(NULL,		"pll0",		&pll0_clk),
@@ -428,7 +441,11 @@ static struct clk_lookup da850_clks[] = {
 	CLK(NULL,		"usb20",	&usb20_clk),
 	CLK("spi_davinci.0",	NULL,		&spi0_clk),
 	CLK("spi_davinci.1",	NULL,		&spi1_clk),
+<<<<<<< HEAD
 	CLK("ahci",		NULL,		&sata_clk),
+=======
+	CLK(NULL,		"dsp",		&dsp_clk),
+>>>>>>> 47443ca... davinci: da850: add remoteproc dsp device
 	CLK(NULL,		NULL,		NULL),
 };
 

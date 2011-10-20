@@ -34,3 +34,19 @@ config OMAP_DUCATI_CMA_SIZE
 	  Allocate a specified size of physically contiguous memory (CMA)
 	  for OMAP's dual M3 "Ducati" sub-system. Vast majority of this
 	  memory isn't wasted in case the M3 sub-system isn't loaded.
+
+config DAVINCI_REMOTEPROC
+	tristate "Davinci remoteproc support"
+	depends on ARCH_DAVINCI_DA850
+	select REMOTEPROC
+	default m
+	help
+	  Say y here to support Davinci's DSP remote processor via the remote
+	  processor framework (currently only da850 is supported).
+
+	  Usually you want to say y here, in order to enable multimedia
+	  use-cases to run on your platform (multimedia codecs are
+	  offloaded to remote DSP processors using this framework).
+
+	  It's safe to say n here if you're not interested in multimedia
+	  offloading or just want a bare minimum kernel.

@@ -22,6 +22,7 @@
 #include <mach/time.h>
 #include <mach/da8xx.h>
 #include <mach/cpuidle.h>
+#include <mach/remoteproc.h>
 
 #include "clock.h"
 
@@ -650,6 +651,20 @@ int __init da850_register_mmcsd1(struct davinci_mmc_config *config)
 	da850_mmcsd1_device.dev.platform_data = config;
 	return platform_device_register(&da850_mmcsd1_device);
 }
+
+int __init da850_register_rproc(void)
+{
+	struct platform_device *rproc;
+	struct davinci_rproc_pdata rproc_pdata = {
+		.name		= "dsp",
+		.firmware	= "davinci-dsp.bin",
+		.clk_name	= "dsp",
+	};
+
+	rproc = platform_device_register_data(NULL, "davinci-rproc", 0,
+					    &rproc_pdata, sizeof(rproc_pdata));
+	return PTR_RET(rproc);
+};
 #endif
 
 static struct resource da8xx_rtc_resources[] = {
