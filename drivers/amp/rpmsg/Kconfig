@@ -4,3 +4,9 @@ config RPMSG
 	select VIRTIO
 	select VIRTIO_RING
 
+config RPMSG_SERVER_SAMPLE
+	tristate "An rpmsg server sample"
+	depends on RPMSG
+	---help---
+	  This is just a sample server driver for the rpmsg bus.
+	  Say either Y or M. You know you want to.
