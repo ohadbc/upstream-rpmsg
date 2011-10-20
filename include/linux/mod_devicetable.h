@@ -405,6 +405,15 @@ struct virtio_device_id {
 };
 #define VIRTIO_DEV_ANY_ID	0xffffffff
 
+/* rpmsg */
+
+#define RPMSG_NAME_SIZE			32
+#define RPMSG_DEVICE_MODALIAS_FMT	"rpmsg:%s"
+
+struct rpmsg_device_id {
+	char name[RPMSG_NAME_SIZE];
+};
+
 /* i2c */
 
 #define I2C_NAME_SIZE	20
