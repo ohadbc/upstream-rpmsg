@@ -319,6 +319,10 @@ static __init void omapl138_hawk_init(void)
 		pr_warning("omapl138_hawk_init: "
 			"watchdog registration failed: %d\n",
 			ret);
+
+	ret = da850_register_rproc();
+	if (ret)
+		pr_warning("dsp/rproc registration failed: %d\n", ret);
 }
 
 #ifdef CONFIG_SERIAL_8250_CONSOLE
@@ -339,6 +343,7 @@ static void __init omapl138_hawk_map_io(void)
 
 MACHINE_START(OMAPL138_HAWKBOARD, "AM18x/OMAP-L138 Hawkboard")
 	.boot_params	= (DA8XX_DDR_BASE + 0x100),
+	.reserve	= davinci_reserve,
 	.map_io		= omapl138_hawk_map_io,
 	.init_irq	= cp_intc_init,
 	.timer		= &davinci_timer,

@@ -117,3 +117,8 @@ void __init davinci_common_init(struct davinci_soc_info *soc_info)
 err:
 	panic("davinci_common_init: SoC Initialization failed\n");
 }
+
+void __init davinci_reserve(void)
+{
+	davinci_rproc_reserve_contig();
+}

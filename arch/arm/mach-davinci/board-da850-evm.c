@@ -1204,6 +1204,10 @@ static __init void da850_evm_init(void)
 	i2c_register_board_info(1, da850_evm_i2c_devices,
 			ARRAY_SIZE(da850_evm_i2c_devices));
 
+	ret = da850_register_rproc();
+	if (ret)
+		pr_warning("dsp/rproc registration failed: %d\n", ret);
+
 	/*
 	 * shut down uart 0 and 1; they are not used on the board and
 	 * accessing them causes endless "too much work in irq53" messages
@@ -1292,6 +1296,7 @@ static void __init da850_evm_map_io(void)
 
 MACHINE_START(DAVINCI_DA850_EVM, "DaVinci DA850/OMAP-L138/AM18x EVM")
 	.boot_params	= (DA8XX_DDR_BASE + 0x100),
+	.reserve	= davinci_reserve,
 	.map_io		= da850_evm_map_io,
 	.init_irq	= cp_intc_init,
 	.timer		= &davinci_timer,
