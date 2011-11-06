@@ -323,4 +323,6 @@ int rpmsg_trysend_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
 }
 
+int get_virtproc_id(struct virtproc_info *vrp);
+
 #endif /* _LINUX_RPMSG_H */

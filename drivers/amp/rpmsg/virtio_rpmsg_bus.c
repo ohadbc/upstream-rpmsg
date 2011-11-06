@@ -51,6 +51,7 @@
  * @sendq:	wait queue of sending contexts waiting for a tx buffers
  * @sleepers:	number of senders that are waiting for a tx buffer
  * @ns_ept:	the bus's name service endpoint
+ * @id:		unique system-wide index id for this vproc
  *
  * This structure stores the rpmsg state of a given virtio remote processor
  * device (there might be several virtio proc devices for each physical
@@ -68,7 +69,14 @@ struct virtproc_info {
 	wait_queue_head_t sendq;
 	atomic_t sleepers;
 	struct rpmsg_endpoint *ns_ept;
+	int id;
 };
+
+int get_virtproc_id(struct virtproc_info *vrp)
+{
+	return vrp->id;
+}
+EXPORT_SYMBOL(get_virtproc_id);
 
 /**
  * struct rpmsg_channel_info - internal channel info representation
@@ -132,6 +140,16 @@ rpmsg_show_attr(name, id.name, "%s\n");
 rpmsg_show_attr(src, src, "0x%x\n");
 rpmsg_show_attr(dst, dst, "0x%x\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
+
+/*
+ * The virtio devices we are probed with represent remote processors
+ * on the system. We call them _virtual_ processors, because every physical
+ * remote processor might actually have several virtio devices.
+ *
+ * The idr below is used to assign each vproc a unique, system-wide, index id.
+ */
+static struct idr vprocs;
+static DEFINE_MUTEX(vprocs_mutex);
 
 /*
  * Unique (and free running) index for rpmsg devices.
@@ -864,7 +882,7 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	struct virtqueue *vqs[2];
 	struct virtproc_info *vrp;
 	void *bufs_va;
-	int err = 0, i;
+	int err = 0, i, vproc_id;
 
 	vrp = kzalloc(sizeof(*vrp), GFP_KERNEL);
 	if (!vrp)
@@ -877,10 +895,24 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	mutex_init(&vrp->tx_lock);
 	init_waitqueue_head(&vrp->sendq);
 
+	if (!idr_pre_get(&vprocs, GFP_KERNEL))
+		goto free_vrp;
+
+	mutex_lock(&vprocs_mutex);
+
+	err = idr_get_new(&vprocs, NULL, &vproc_id);
+
+	mutex_unlock(&vprocs_mutex);
+
+	if (err) {
+		dev_err(&vdev->dev, "idr_get_new failed: %d\n", err);
+		goto free_vrp;
+	}
+
 	/* We expect two virtqueues, rx and tx (and in this order) */
 	err = vdev->config->find_vqs(vdev, 2, vqs, vq_cbs, names);
 	if (err)
-		goto free_vrp;
+		goto rem_idr;
 
 	vrp->rvq = vqs[0];
 	vrp->svq = vqs[1];
@@ -941,6 +973,10 @@ free_coherent:
 					vrp->bufs_dma);
 vqs_del:
 	vdev->config->del_vqs(vrp->vdev);
+rem_idr:
+	mutex_lock(&vprocs_mutex);
+	idr_remove(&vprocs, vproc_id);
+	mutex_unlock(&vprocs_mutex);
 free_vrp:
 	kfree(vrp);
 	return err;
@@ -972,6 +1008,10 @@ static void __devexit rpmsg_remove(struct virtio_device *vdev)
 	dma_free_coherent(vdev->dev.parent, RPMSG_TOTAL_BUF_SPACE,
 					vrp->rbufs, vrp->bufs_dma);
 
+	mutex_lock(&vprocs_mutex);
+	idr_remove(&vprocs, vrp->id);
+	mutex_unlock(&vprocs_mutex);
+
 	kfree(vrp);
 }
 
@@ -998,6 +1038,8 @@ static int __init rpmsg_init(void)
 {
 	int ret;
 
+	idr_init(&vprocs);
+
 	ret = bus_register(&rpmsg_bus);
 	if (ret) {
 		pr_err("failed to register rpmsg bus: %d\n", ret);
@@ -1018,6 +1060,9 @@ static void __exit rpmsg_fini(void)
 {
 	unregister_virtio_driver(&virtio_ipc_driver);
 	bus_unregister(&rpmsg_bus);
+
+	idr_remove_all(&vprocs);
+	idr_destroy(&vprocs);
 }
 module_exit(rpmsg_fini);
 
