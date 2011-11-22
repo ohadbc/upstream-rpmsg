@@ -23,6 +23,7 @@
  * 02110-1301 USA
  */
 
+#include <linux/module.h>
 #include <asm/cacheflush.h>
 #include <linux/clk.h>
 #include <linux/mm.h>
