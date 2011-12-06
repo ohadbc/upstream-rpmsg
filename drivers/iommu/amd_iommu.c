@@ -41,6 +41,24 @@
 
 #define LOOP_TIMEOUT	100000
 
+/*
+ * This bitmap is used to advertise the page sizes our hardware support
+ * to the IOMMU core, which will then use this information to split
+ * physically contiguous memory regions it is mapping into page sizes
+ * that we support.
+ *
+ * Traditionally the IOMMU core just handed us the mappings directly,
+ * after making sure the size is an order of a 4KiB page and that the
+ * mapping has natural alignment.
+ *
+ * To retain this behavior, we currently advertise that we support
+ * all page sizes that are an order of 4KiB.
+ *
+ * If at some point we'd like to utilize the IOMMU core's new behavior,
+ * we could change this to advertise the real page sizes we support.
+ */
+#define AMD_IOMMU_PGSIZES	(~0xFFFUL)
+
 static DEFINE_RWLOCK(amd_iommu_devtable_lock);
 
 /* A list of preallocated protection domains */
@@ -2702,9 +2720,8 @@ static int amd_iommu_attach_device(struct iommu_domain *dom,
 }
 
 static int amd_iommu_map(struct iommu_domain *dom, unsigned long iova,
-			 phys_addr_t paddr, int gfp_order, int iommu_prot)
+			 phys_addr_t paddr, size_t page_size, int iommu_prot)
 {
-	unsigned long page_size = 0x1000UL << gfp_order;
 	struct protection_domain *domain = dom->priv;
 	int prot = 0;
 	int ret;
@@ -2721,13 +2738,11 @@ static int amd_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	return ret;
 }
 
-static int amd_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
-			   int gfp_order)
+static size_t amd_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
+			   size_t page_size)
 {
 	struct protection_domain *domain = dom->priv;
-	unsigned long page_size, unmap_size;
-
-	page_size  = 0x1000UL << gfp_order;
+	size_t unmap_size;
 
 	mutex_lock(&domain->api_lock);
 	unmap_size = iommu_unmap_page(domain, iova, page_size);
@@ -2735,7 +2750,7 @@ static int amd_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
 
 	domain_flush_tlb_pde(domain);
 
-	return get_order(unmap_size);
+	return unmap_size;
 }
 
 static phys_addr_t amd_iommu_iova_to_phys(struct iommu_domain *dom,
@@ -2773,6 +2788,26 @@ static int amd_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
+static int amd_iommu_device_group(struct device *dev, unsigned int *groupid)
+{
+	struct iommu_dev_data *dev_data = dev->archdata.iommu;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	u16 devid;
+
+	if (!dev_data)
+		return -ENODEV;
+
+	if (pdev->is_virtfn || !iommu_group_mf)
+		devid = dev_data->devid;
+	else
+		devid = calc_devid(pdev->bus->number,
+				   PCI_DEVFN(PCI_SLOT(pdev->devfn), 0));
+
+	*groupid = amd_iommu_alias_table[devid];
+
+	return 0;
+}
+
 static struct iommu_ops amd_iommu_ops = {
 	.domain_init = amd_iommu_domain_init,
 	.domain_destroy = amd_iommu_domain_destroy,
@@ -2782,6 +2817,8 @@ static struct iommu_ops amd_iommu_ops = {
 	.unmap = amd_iommu_unmap,
 	.iova_to_phys = amd_iommu_iova_to_phys,
 	.domain_has_cap = amd_iommu_domain_has_cap,
+	.device_group = amd_iommu_device_group,
+	.pgsize_bitmap	= AMD_IOMMU_PGSIZES,
 };
 
 /*****************************************************************************
