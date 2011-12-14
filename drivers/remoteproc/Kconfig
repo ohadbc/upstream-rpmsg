@@ -1,3 +1,5 @@
+menu "Remoteproc drivers"
+
 # REMOTEPROC gets selected by whoever wants it
 config REMOTEPROC
 	tristate
@@ -34,3 +36,5 @@ config OMAP_DUCATI_CMA_SIZE
 	  Allocate a specified size of physically contiguous memory (CMA)
 	  for OMAP's dual M3 "Ducati" sub-system. Vast majority of this
 	  memory isn't wasted in case the M3 sub-system isn't loaded.
+
+endmenu
