@@ -428,6 +428,22 @@ static void __rpmsg_proto_cb(struct device *dev, int from_vproc_id, void *data,
 
 	lock_sock(sk);
 
+	switch (sk->sk_state) {
+	case RPMSG_CONNECTED:
+		if (rpsk->rpdev->dst != src)
+			dev_warn(dev, "unexpected source address: %d\n", src);
+		break;
+	case RPMSG_LISTENING:
+		/* When an inbound message is received while we're listening,
+		 * we implicitly become connected */
+		sk->sk_state = RPMSG_CONNECTED;
+		rpsk->rpdev->dst = src;
+		break;
+	default:
+		dev_warn(dev, "unexpected inbound message (from %d)\n", src);
+		break;
+	}
+
 	skb = sock_alloc_send_skb(sk, len, 1, &ret);
 	if (!skb) {
 		dev_err(dev, "sock_alloc_send_skb failed: %d\n", ret);
@@ -440,11 +456,6 @@ static void __rpmsg_proto_cb(struct device *dev, int from_vproc_id, void *data,
 	RPMSG_CB(skb).family = AF_RPMSG;
 
 	memcpy(skb_put(skb, len), data, len);
-
-	/* cache inbound dst addr for listening sockets.
-	 * this is limited to a single session ! */
-	if (sk->sk_state == RPMSG_LISTENING)
-		rpsk->rpdev->dst = src;
 
 	ret = sock_queue_rcv_skb(sk, skb);
 	if (ret) {
