@@ -44,10 +44,12 @@
  */
 static struct omap_rproc_pdata omap4_rproc_data[] = {
 	{
-		.name		= "ipu_c0",
+		.name		= "ipu_c0c1",
 		.firmware	= "ducati-m3-core0.xem3",
+		.firmware_opt	= "ducati-m3-core1.xem3",
 		.mbox_name	= "mailbox-1",
 		.oh_name	= "ipu_c0",
+		.oh_name_opt	= "ipu_c1",
 	},
 };
 

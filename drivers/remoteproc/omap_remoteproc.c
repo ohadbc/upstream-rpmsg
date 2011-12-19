@@ -196,7 +196,8 @@ static int __devinit omap_rproc_probe(struct platform_device *pdev)
 	}
 
 	rproc = rproc_alloc(&pdev->dev, pdata->name, &omap_rproc_ops,
-				pdata->firmware, sizeof(*oproc));
+				pdata->firmware,
+				pdata->firmware_opt, sizeof(*oproc));
 	if (!rproc)
 		return -ENOMEM;
 

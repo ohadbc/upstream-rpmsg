@@ -68,7 +68,10 @@ static void rproc_virtio_notify(struct virtqueue *vq)
  */
 irqreturn_t rproc_vq_interrupt(struct rproc *rproc, int vq_id)
 {
-	return vring_interrupt(0, rproc->rvdev->vq[vq_id]);
+	if (vq_id < 2)
+		return vring_interrupt(0, rproc->rvdev->vq[vq_id]);
+	else
+		return vring_interrupt(0, rproc->rvdev_opt->vq[vq_id-2]);
 }
 EXPORT_SYMBOL(rproc_vq_interrupt);
 
@@ -78,7 +81,7 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 				    const char *name)
 {
 	struct rproc *rproc = vdev_to_rproc(vdev);
-	struct rproc_vdev *rvdev = rproc->rvdev;
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 	struct rproc_virtio_vq_info *rpvq;
 	struct virtqueue *vq;
 	void *addr;
@@ -89,7 +92,7 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 		return ERR_PTR(-ENOMEM);
 
 	rpvq->rproc = rproc;
-	rpvq->vq_id = id;
+	rpvq->vq_id = id + rvdev->vq_id_base;
 
 	addr = rvdev->vring[id].va;
 	len = rvdev->vring[id].len;
@@ -188,15 +191,14 @@ static void rproc_virtio_reset(struct virtio_device *vdev)
 /* provide the vdev features as retrieved from the firmware */
 static u32 rproc_virtio_get_features(struct virtio_device *vdev)
 {
-	struct rproc *rproc = vdev_to_rproc(vdev);
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 
-	/* we only support a single vdev device for now */
-	return rproc->rvdev->dfeatures;
+	return rvdev->dfeatures;
 }
 
 static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 {
-	struct rproc *rproc = vdev_to_rproc(vdev);
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 
 	/* Give virtio_ring a chance to accept features */
 	vring_transport_features(vdev);
@@ -210,7 +212,7 @@ static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 	 * fixed as part of a small resource table overhaul and then an
 	 * extension of the virtio resource entries.
 	 */
-	rproc->rvdev->gfeatures = vdev->features[0];
+	rvdev->gfeatures = vdev->features[0];
 }
 
 static struct virtio_config_ops rproc_virtio_config_ops = {
@@ -277,6 +279,29 @@ int rproc_add_rpmsg_vdev(struct rproc *rproc)
 		dev_err(dev, "failed to register vdev: %d\n", ret);
 	}
 
+	rvdev = rproc->rvdev_opt;
+
+	rvdev->vdev.id.device	= VIRTIO_ID_RPMSG,
+	rvdev->vdev.config	= &rproc_virtio_config_ops,
+	rvdev->vdev.dev.parent	= dev;
+	rvdev->vdev.dev.release	= rproc_vdev_release;
+
+	/*
+	 * We're indirectly making a non-temporary copy of the rproc pointer
+	 * here, because drivers probed with this vdev will indirectly
+	 * access the wrapping rproc.
+	 *
+	 * Therefore we must increment the rproc refcount here, and decrement
+	 * it _only_ when the vdev is released.
+	 */
+	kref_get(&rproc->refcount);
+
+	ret = register_virtio_device(&rvdev->vdev);
+	if (ret) {
+		kref_put(&rproc->refcount, rproc_release);
+		dev_err(dev, "failed to register vdev: %d\n", ret);
+	}
+
 	return ret;
 }
 
@@ -290,6 +315,10 @@ int rproc_add_rpmsg_vdev(struct rproc *rproc)
 void rproc_remove_rpmsg_vdev(struct rproc *rproc)
 {
 	struct rproc_vdev *rvdev = rproc->rvdev;
+
+	unregister_virtio_device(&rvdev->vdev);
+
+	rvdev = rproc->rvdev_opt;
 
 	unregister_virtio_device(&rvdev->vdev);
 }

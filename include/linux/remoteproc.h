@@ -206,6 +206,7 @@ struct rproc {
 	struct iommu_domain *domain;
 	const char *name;
 	const char *firmware;
+	const char *firmware_opt;
 	void *priv;
 	const struct rproc_ops *ops;
 	struct device *dev;
@@ -221,6 +222,7 @@ struct rproc {
 	struct completion firmware_loading_complete;
 	u64 bootaddr;
 	struct rproc_vdev *rvdev;
+	struct rproc_vdev *rvdev_opt;
 };
 
 /**
@@ -239,6 +241,7 @@ struct rproc_vdev {
 	struct rproc_mem_entry vring[2];
 	unsigned long dfeatures;
 	unsigned long gfeatures;
+	int vq_id_base;
 };
 
 struct rproc *rproc_get_by_name(const char *name);
@@ -246,13 +249,19 @@ void rproc_put(struct rproc *rproc);
 
 struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
-				const char *firmware, int len);
+				const char *firmware,
+				const char *firmware_opt, int len);
 void rproc_free(struct rproc *rproc);
 int rproc_register(struct rproc *rproc);
 int rproc_unregister(struct rproc *rproc);
 
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
+
+static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)
+{
+	return container_of(vdev, struct rproc_vdev, vdev);
+}
 
 static inline struct rproc *vdev_to_rproc(struct virtio_device *vdev)
 {

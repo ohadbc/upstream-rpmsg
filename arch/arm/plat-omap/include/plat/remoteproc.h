@@ -36,6 +36,7 @@ struct omap_rproc_pdata {
 	const char *oh_name;
 	const char *oh_name_opt;
 	const char *firmware;
+	const char *firmware_opt;
 	const char *mbox_name;
 	const struct rproc_ops *ops;
 	int (*device_enable) (struct platform_device *pdev);

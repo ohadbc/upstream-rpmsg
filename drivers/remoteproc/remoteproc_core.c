@@ -317,7 +317,7 @@ static int rproc_handle_virtio_hdr(struct rproc *rproc, struct fw_resource *rsc)
 	}
 
 	/* we only support a single vdev per rproc for now */
-	if (rsc->id || rproc->rvdev) {
+	if (rproc->rvdev && rproc->rvdev_opt) {
 		dev_warn(rproc->dev, "redundant vdev entry: %s\n", rsc->name);
 		return -EINVAL;
 	}
@@ -329,7 +329,12 @@ static int rproc_handle_virtio_hdr(struct rproc *rproc, struct fw_resource *rsc)
 	/* remember the device features */
 	rvdev->dfeatures = rsc->da;
 
-	rproc->rvdev = rvdev;
+	if (rproc->rvdev) {
+		rvdev->vq_id_base = 2;
+		rproc->rvdev_opt = rvdev;
+	} else
+		rproc->rvdev = rvdev;
+
 	rvdev->rproc = rproc;
 
 	return 0;
@@ -360,10 +365,17 @@ static int rproc_handle_virtio_hdr(struct rproc *rproc, struct fw_resource *rsc)
 static int rproc_handle_vring(struct rproc *rproc, struct fw_resource *rsc)
 {
 	struct device *dev = rproc->dev;
-	struct rproc_vdev *rvdev = rproc->rvdev;
+	struct rproc_vdev *rvdev;
 	dma_addr_t dma;
 	int size, id = rsc->id;
 	void *va;
+
+	if (id <= 1)
+		rvdev = rproc->rvdev;
+	else {
+		rvdev = rproc->rvdev_opt;
+		id -= 2;
+	}
 
 	/* no vdev is in place ? */
 	if (!rvdev) {
@@ -712,7 +724,8 @@ rproc_handle_virtio_rsc(struct rproc *rproc, struct fw_resource *rsc, int len)
 			dev_dbg(dev, "found vdev %d/%s features %llx\n",
 					rsc->flags, rsc->name, rsc->da);
 			ret = rproc_handle_virtio_hdr(rproc, rsc);
-			break;
+			if (ret)
+				break;
 		}
 
 	return ret;
@@ -877,7 +890,8 @@ static int rproc_fw_sanity_check(struct rproc *rproc, const struct firmware *fw)
 /*
  * take a firmware and boot a remote processor with it.
  */
-static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
+static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw,
+					const struct firmware *fw_opt)
 {
 	struct device *dev = rproc->dev;
 	const char *name = rproc->firmware;
@@ -888,9 +902,18 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret)
 		return ret;
 
-	ehdr = (struct elf32_hdr *)fw->data;
-
 	dev_info(dev, "Booting fw image %s, size %d\n", name, fw->size);
+
+	if (fw_opt) {
+		ret = rproc_fw_sanity_check(rproc, fw);
+		if (ret)
+			return ret;
+
+		dev_info(dev, "Booting fw image %s, size %d\n",
+				rproc->firmware_opt, fw_opt->size);
+	}
+
+	ehdr = (struct elf32_hdr *)fw->data;
 
 	/*
 	 * if enabling an IOMMU isn't relevant for this rproc, this is
@@ -922,6 +945,14 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret) {
 		dev_err(dev, "Failed to load program segments: %d\n", ret);
 		goto clean_up;
+	}
+
+	if (fw_opt) {
+		ret = rproc_load_segments(rproc, fw_opt->data, fw_opt->size);
+		if (ret) {
+			dev_err(dev, "Failed to load program segments: %d\n", ret);
+			goto clean_up;
+		}
 	}
 
 	/* power up the remote processor */
@@ -994,6 +1025,7 @@ out:
 int rproc_boot(struct rproc *rproc)
 {
 	const struct firmware *firmware_p;
+	const struct firmware *firmware_p_opt;
 	struct device *dev;
 	int ret;
 
@@ -1039,10 +1071,21 @@ int rproc_boot(struct rproc *rproc)
 		goto downref_rproc;
 	}
 
-	ret = rproc_fw_boot(rproc, firmware_p);
+	if (rproc->firmware_opt) {
+		ret = request_firmware(&firmware_p_opt, rproc->firmware_opt, dev);
+		if (ret < 0) {
+			dev_err(dev, "request_firmware failed: %d\n", ret);
+			goto release_f;
+		}
+	}
 
+	ret = rproc_fw_boot(rproc, firmware_p, firmware_p_opt);
+
+	if (rproc->firmware_opt)
+		release_firmware(firmware_p_opt);
+
+release_f:
 	release_firmware(firmware_p);
-
 downref_rproc:
 	if (ret) {
 		module_put(dev->driver->owner);
@@ -1327,7 +1370,8 @@ EXPORT_SYMBOL(rproc_register);
  */
 struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
-				const char *firmware, int len)
+				const char *firmware,
+				const char *firmware_opt, int len)
 {
 	struct rproc *rproc;
 
@@ -1344,6 +1388,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	rproc->name = name;
 	rproc->ops = ops;
 	rproc->firmware = firmware;
+	rproc->firmware_opt = firmware_opt;
 	rproc->priv = &rproc[1];
 
 	atomic_set(&rproc->power, 0);
