@@ -39,5 +39,12 @@ extern void update_pcp_isolate_block(unsigned long pfn);
 extern int set_migratetype_isolate(struct page *page);
 extern void unset_migratetype_isolate(struct page *page);
 
+#ifdef CONFIG_CMA
+
+/* The below functions must be run on a range from a single zone. */
+extern int alloc_contig_range(unsigned long start, unsigned long end);
+extern void free_contig_range(unsigned long pfn, unsigned nr_pages);
+
+#endif
 
 #endif
