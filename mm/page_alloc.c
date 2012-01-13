@@ -5465,6 +5465,7 @@ out:
 	if (!ret) {
 		set_pageblock_migratetype(page, MIGRATE_ISOLATE);
 		move_freepages_block(zone, page, MIGRATE_ISOLATE);
+		update_pcp_isolate_block(pfn);
 	}
 
 	spin_unlock_irqrestore(&zone->lock, flags);

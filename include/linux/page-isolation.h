@@ -27,6 +27,12 @@ extern int
 test_pages_isolated(unsigned long start_pfn, unsigned long end_pfn);
 
 /*
+ * Check all pages in pageblock, find the ones on pcp list, and set
+ * their page_private to MIGRATE_ISOLATE.
+ */
+extern void update_pcp_isolate_block(unsigned long pfn);
+
+/*
  * Internal funcs.Changes pageblock's migrate type.
  * Please use make_pagetype_isolated()/make_pagetype_movable().
  */
