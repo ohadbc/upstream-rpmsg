@@ -66,6 +66,9 @@ typedef int (*rproc_handle_resources_t)(struct rproc *rproc,
 				struct resource_table *table, int len);
 typedef int (*rproc_handle_resource_t)(struct rproc *rproc, void *, int avail);
 
+/* Unique numbering for remoteproc devices */
+static unsigned int dev_index;
+
 /*
  * This is the IOMMU fault handler we register with the IOMMU API
  * (when relevant; not all remote processors access memory through
@@ -1408,6 +1411,10 @@ int rproc_register(struct rproc *rproc)
 	struct device *dev = rproc->dev;
 	int ret = 0;
 
+	ret = device_add(&rproc->dev);
+	if (ret < 0)
+		return ret;
+
 	/* expose to rproc_get_by_name users */
 	klist_add_tail(&rproc->node, &rprocs);
 
@@ -1442,6 +1449,19 @@ int rproc_register(struct rproc *rproc)
 	return ret;
 }
 EXPORT_SYMBOL(rproc_register);
+
+static void rproc_class_release(struct device *dev)
+{
+	struct rproc *rproc = container_of(dev, struct rproc, dev);
+
+	kfree(rproc);
+}
+
+static struct class rproc_class = {
+	.name		= "rproc",
+	.owner		= THIS_MODULE,
+	.dev_release	= rproc_class_release,
+};
 
 /**
  * rproc_alloc() - allocate a remote processor handle
@@ -1481,11 +1501,18 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 		return NULL;
 	}
 
-	rproc->dev = dev;
 	rproc->name = name;
 	rproc->ops = ops;
 	rproc->firmware = firmware;
 	rproc->priv = &rproc[1];
+
+	device_initialize(&rproc->dev);
+	rproc->dev.parent = dev;
+	rproc->dev.class = &rproc_class;
+	
+	/* Assign a unique device index and name */
+	rproc->index = dev_index++;
+	dev_set_name(&rproc->dev, "remoteproc%d", rproc->index);
 
 	atomic_set(&rproc->power, 0);
 
@@ -1521,7 +1548,7 @@ void rproc_free(struct rproc *rproc)
 	idr_remove_all(&rproc->notifyids);
 	idr_destroy(&rproc->notifyids);
 
-	kfree(rproc);
+	put_device(&rproc->dev);
 }
 EXPORT_SYMBOL(rproc_free);
 
@@ -1562,6 +1589,8 @@ int rproc_unregister(struct rproc *rproc)
 	/* the rproc is downref'ed as soon as it's removed from the klist */
 	klist_del(&rproc->node);
 
+	device_del(&rproc->dev);
+
 	/* the rproc will only be released after its refcount drops to zero */
 	kref_put(&rproc->refcount, rproc_release);
 
@@ -1571,7 +1600,14 @@ EXPORT_SYMBOL(rproc_unregister);
 
 static int __init remoteproc_init(void)
 {
+	int ret;
+
+	ret = class_register(&rproc_class);
+	if (ret)
+		return ret;
+
 	rproc_init_debugfs();
+	
 	return 0;
 }
 module_init(remoteproc_init);
@@ -1579,6 +1615,8 @@ module_init(remoteproc_init);
 static void __exit remoteproc_exit(void)
 {
 	rproc_exit_debugfs();
+
+	class_unregister(&rproc_class);
 }
 module_exit(remoteproc_exit);
 
