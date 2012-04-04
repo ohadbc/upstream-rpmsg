@@ -43,7 +43,7 @@
 
 static int omap_hwspinlock_trylock(struct hwspinlock *lock)
 {
-	void __iomem *lock_addr = lock->priv;
+	void __iomem *lock_addr = (void __iomem *)lock->priv;
 
 	/* attempt to acquire the lock by reading its value */
 	return (SPINLOCK_NOTTAKEN == readl(lock_addr));
@@ -51,7 +51,7 @@ static int omap_hwspinlock_trylock(struct hwspinlock *lock)
 
 static void omap_hwspinlock_unlock(struct hwspinlock *lock)
 {
-	void __iomem *lock_addr = lock->priv;
+	void __iomem *lock_addr = (void __iomem *)lock->priv;
 
 	/* release the lock by writing 0 to it */
 	writel(SPINLOCK_NOTTAKEN, lock_addr);
@@ -145,8 +145,10 @@ iounmap_base:
 static int __devexit omap_hwspinlock_remove(struct platform_device *pdev)
 {
 	struct hwspinlock_device *bank = platform_get_drvdata(pdev);
-	void __iomem *io_base = bank->lock[0].priv - LOCK_BASE_OFFSET;
+	void __iomem *io_base;
 	int ret;
+
+	io_base = (void __iomem *) bank->lock[0].priv - LOCK_BASE_OFFSET;
 
 	ret = hwspin_lock_unregister(bank);
 	if (ret) {
