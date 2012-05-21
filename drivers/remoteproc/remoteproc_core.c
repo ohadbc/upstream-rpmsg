@@ -1141,6 +1141,18 @@ int rproc_boot(struct rproc *rproc)
 
 	dev = rproc->dev;
 
+	/*
+	 * if asynchronoush fw loading is underway, wait up to 65 secs
+	 * (just a bit more than the firmware request's timeout)
+	 */
+	ret = wait_for_completion_interruptible_timeout(
+					&rproc->firmware_loading_complete,
+					msecs_to_jiffies(65000));
+	if (ret <= 0) {
+		dev_err(dev, "async fw loading isn't complete: %d\n", ret);
+		return ret ? ret : -ETIMEDOUT;
+	}
+
 	ret = mutex_lock_interruptible(&rproc->lock);
 	if (ret) {
 		dev_err(dev, "can't lock rproc %s: %d\n", rproc->name, ret);
