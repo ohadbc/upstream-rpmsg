@@ -224,6 +224,8 @@ static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		return NULL;
 	}
 
+	mutex_init(&ept->lock);
+
 	ept->rpdev = rpdev;
 	ept->cb = cb;
 	ept->priv = priv;
@@ -256,6 +258,12 @@ rem_idr:
 	idr_remove(&vrp->endpoints, request);
 free_ept:
 	mutex_unlock(&vrp->endpoints_lock);
+	/*
+	 * No context could have already grabbed access to ept, because we never
+	 * unlocked endpoints_lock while ept was published.
+	 *
+	 * So it's safe to just directly de-allocate it now.
+	 */
 	kfree(ept);
 	return NULL;
 }
@@ -320,9 +328,26 @@ EXPORT_SYMBOL(rpmsg_create_ept);
 static void
 __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
 {
+	/* make sure new inbound messages can't find this ept anymore */
 	mutex_lock(&vrp->endpoints_lock);
 	idr_remove(&vrp->endpoints, ept->addr);
+
+	/*
+	 * At this point there can't be any more new ept users.
+	 *
+	 * Now let's wait for any potential existing in-flight message to be
+	 * consumed.
+	 */
+	mutex_lock(&ept->lock);
+
 	mutex_unlock(&vrp->endpoints_lock);
+
+	/*
+	 * This is not strictly needed, but it makes a point: we own ept and
+	 * its content, and no other context can ever access it again.
+	 */
+	ept->cb = NULL;
+	mutex_unlock(&ept->lock);
 
 	kfree(ept);
 }
@@ -808,12 +833,23 @@ static void rpmsg_recv_done(struct virtqueue *rvq)
 
 	/* use the dst addr to fetch the callback of the appropriate user */
 	mutex_lock(&vrp->endpoints_lock);
+
 	ept = idr_find(&vrp->endpoints, msg->dst);
+
+	/* make sure ept doesn't go away while we use it */
+	if (ept)
+		mutex_lock(&ept->lock);
+
 	mutex_unlock(&vrp->endpoints_lock);
 
-	if (ept && ept->cb)
-		ept->cb(ept->rpdev, msg->data, msg->len, ept->priv, msg->src);
-	else
+	if (ept) {
+		if (ept->cb)
+			ept->cb(ept->rpdev, msg->data, msg->len, ept->priv,
+				msg->src);
+
+		/* farewell, ept, we don't need you anymore */
+		mutex_unlock(&ept->lock);
+	} else
 		dev_warn(dev, "msg received with no recepient\n");
 
 	/* publish the real size of the buffer */
