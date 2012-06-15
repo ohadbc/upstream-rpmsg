@@ -925,6 +925,51 @@ int omap_device_shutdown(struct platform_device *pdev)
 }
 
 /**
+ * omap_device_assert_hardreset - set a device's reset line
+ * @pdev: struct platform_device * to reset
+ * @name: const char * with the name of the reset line
+ *
+ * According to @name, set the reset line of the hwmods associated
+ * with this @pdev deivce.
+ */
+int omap_device_assert_hardreset(struct platform_device *pdev, const char *name)
+{
+	int i, ret = 0;
+	struct omap_device *od = to_omap_device(pdev);
+
+	for (i = 0; i < od->hwmods_cnt; i++) {
+		ret = omap_hwmod_assert_hardreset(od->hwmods[i], name);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
+/**
+ * omap_device_deassert_hardreset - lift a device's reset line
+ * @pdev: struct platform_device * to reset
+ * @name: const char * with the name of the reset line
+ *
+ * According to @name, lift the reset line of the hwmods associated
+ * with this @pdev deivce.
+ */
+int omap_device_deassert_hardreset(struct platform_device *pdev,
+				const char *name)
+{
+	int i, ret = 0;
+	struct omap_device *od = to_omap_device(pdev);
+
+	for (i = 0; i < od->hwmods_cnt; i++) {
+		ret = omap_hwmod_deassert_hardreset(od->hwmods[i], name);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
+/**
  * omap_device_align_pm_lat - activate/deactivate device to match wakeup lat lim
  * @od: struct omap_device *
  *
