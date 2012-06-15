@@ -48,6 +48,8 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.firmware	= "ducati-m3-core0.xem3",
 		.mbox_name	= "mailbox-1",
 		.oh_name	= "ipu_c0",
+		.assert_reset	= omap_device_assert_hardreset,
+		.deassert_reset	= omap_device_deassert_hardreset,
 	},
 };
 
