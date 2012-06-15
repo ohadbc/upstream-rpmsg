@@ -1,0 +1,10 @@
+* MMU (Memory Management Unit)
+
+MMU present in OMAP subsystems.
+
+Required properties:
+ compatible : should be "ti,omap3-iommu" for OMAP3 MMUs
+ compatible : should be "ti,omap4-iommu" for OMAP4 MMUs
+
+Optional properties:
+ None
