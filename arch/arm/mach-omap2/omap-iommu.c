@@ -37,6 +37,12 @@ static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
 	pdata->da_start = a->da_start;
 	pdata->da_end = a->da_end;
 
+	if (oh->rst_lines_cnt == 1) {
+		pdata->reset_name = oh->rst_lines->name;
+		pdata->assert_reset = omap_device_assert_hardreset;
+		pdata->deassert_reset = omap_device_deassert_hardreset;
+	}
+
 	pdev = omap_device_build("omap-iommu", i, oh, pdata, sizeof(*pdata),
 				NULL, 0, 0);
 

@@ -13,6 +13,8 @@
 #ifndef __MACH_IOMMU_H
 #define __MACH_IOMMU_H
 
+#include <linux/platform_device.h>
+
 struct iotlb_entry {
 	u32 da;
 	u32 pa;
@@ -119,9 +121,13 @@ struct omap_mmu_dev_attr {
 struct iommu_platform_data {
 	const char *name;
 	const char *clk_name;
+	const char *reset_name;
 	int nr_tlb_entries;
 	u32 da_start;
 	u32 da_end;
+
+	int (*assert_reset)(struct platform_device *pdev, const char *name);
+	int (*deassert_reset)(struct platform_device *pdev, const char *name);
 };
 
 /**
