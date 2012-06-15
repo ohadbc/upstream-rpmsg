@@ -54,7 +54,7 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 };
 
 static struct omap_iommu_arch_data omap4_rproc_iommu[] = {
-	{ .name = "ducati" },
+	{ .name = "ipu_mmu" },
 };
 
 static struct omap_device_pm_latency omap_rproc_latency[] = {
