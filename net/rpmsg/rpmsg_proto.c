@@ -175,7 +175,7 @@ static int rpmsg_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	pr_debug("sk %p len %d\n", sk, len);
 
-	if (msg->msg_flags & MSG_OOB)
+	if (flags & MSG_OOB)
 		return -EOPNOTSUPP;
 
 	msg->msg_namelen = 0;
