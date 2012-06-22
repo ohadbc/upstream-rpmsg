@@ -158,6 +158,16 @@
 			#interrupt-cells = <1>;
 		};
 
+		dsp_mmu: dsp_mmu@4a066000 {
+			compatible = "ti,omap4-iommu";
+			ti,hwmods = "dsp_mmu";
+		};
+
+		ipu_mmu: ipu_mmu@55082000 {
+			compatible = "ti,omap4-iommu";
+			ti,hwmods = "ipu_mmu";
+		};
+
 		uart1: serial@4806a000 {
 			compatible = "ti,omap4-uart";
 			ti,hwmods = "uart1";

@@ -123,6 +123,16 @@
 			#interrupt-cells = <1>;
 		};
 
+		isp_mmu: isp_mmu@480bd400 {
+			compatible = "ti,omap3-iommu";
+			ti,hwmods = "isp_mmu";
+		};
+
+		iva_mmu: iva_mmu@5d000000 {
+			compatible = "ti,omap3-iommu";
+			ti,hwmods = "iva_mmu";
+		};
+
 		uart1: serial@4806a000 {
 			compatible = "ti,omap3-uart";
 			ti,hwmods = "uart1";
