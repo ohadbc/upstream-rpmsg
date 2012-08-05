@@ -1007,6 +1007,30 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		}
 	}
 
+	if (virtio_has_feature(vdev, VIRTIO_RPMSG_F_STA_CHS)) {
+		struct rpmsg_channel_desc sta_ch;
+		struct rpmsg_channel_info chinfo;
+		struct rpmsg_channel *newch;
+
+		vdev->config->get(vdev,
+				  offsetof(struct virtio_rpmsg_config, sta_chs),
+				  &sta_ch, sizeof(sta_ch));
+
+		sta_ch.name[RPMSG_NAME_SIZE - 1] = '\0';
+
+		dev_info(&vdev->dev,
+			 "creating static channel %s src 0x%x dst 0x%x\n",
+			 sta_ch.name, sta_ch.src, sta_ch.dst);
+
+		strncpy(chinfo.name, sta_ch.name, RPMSG_NAME_SIZE);
+		chinfo.src = sta_ch.src;
+		chinfo.dst = sta_ch.dst;
+
+		newch = __rpmsg_create_channel(vrp, &chinfo);
+		if (!newch)
+			dev_err(&vdev->dev, "__rpmsg_create_channel failed\n");
+	}
+
 	/* tell the remote processor it can start sending messages */
 	virtqueue_kick(vrp->rvq);
 
@@ -1070,7 +1094,7 @@ static struct virtio_device_id id_table[] = {
 };
 
 static unsigned int features[] = {
-	VIRTIO_RPMSG_F_NS,
+	VIRTIO_RPMSG_F_NS, VIRTIO_RPMSG_F_STA_CHS,
 };
 
 static struct virtio_driver virtio_ipc_driver = {

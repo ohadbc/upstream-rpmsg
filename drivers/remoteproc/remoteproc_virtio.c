@@ -207,6 +207,21 @@ static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 	rvdev->gfeatures = vdev->features[0];
 }
 
+/* Once they've found a field, getting a copy of it is easy. */
+static void rproc_virtio_get(struct virtio_device *vdev, unsigned int offset,
+		   void *buf, unsigned len)
+{
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+
+	/* Check they didn't ask for more than the length of the config! */
+	BUG_ON(offset + len > rvdev->config_len);
+	memcpy(buf, rvdev->config_space + offset, len);
+}
+
+/*
+ * at this point we provide ->get() but not ->set(), because our config
+ * space is unidirectional (to be fixed).
+ */
 static struct virtio_config_ops rproc_virtio_config_ops = {
 	.get_features	= rproc_virtio_get_features,
 	.finalize_features = rproc_virtio_finalize_features,
@@ -215,6 +230,7 @@ static struct virtio_config_ops rproc_virtio_config_ops = {
 	.reset		= rproc_virtio_reset,
 	.set_status	= rproc_virtio_set_status,
 	.get_status	= rproc_virtio_get_status,
+	.get		= rproc_virtio_get,
 };
 
 /*

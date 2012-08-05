@@ -41,6 +41,7 @@
 
 /* The feature bitmap for virtio rpmsg */
 #define VIRTIO_RPMSG_F_NS	0 /* RP supports name service notifications */
+#define VIRTIO_RPMSG_F_STA_CHS	1 /* RP has static channels in config space */
 
 /**
  * struct rpmsg_hdr - common header for all rpmsg messages
@@ -92,6 +93,32 @@ enum rpmsg_ns_flags {
 };
 
 #define RPMSG_ADDR_ANY		0xFFFFFFFF
+
+/**
+ * struct rpmsg_channel_desc - static channel descriptor
+ * @name: name of remote service that is published
+ * @src: source (local) address
+ * @dst: destination (remote) address
+ * @flags: channel flags
+ * @reserved: currently unused (must be zero)
+ *
+ * This structure contains a descriptor for a static rpmsg channel.
+ * Namely, it holds the src and dst addresses of a channel, possibly
+ * with some flags, and is being used to synchronize about static
+ * channels (via the resource table). The rpmsg bus will access it
+ * via the virtio config space.
+ */
+struct rpmsg_channel_desc {
+	char name[RPMSG_NAME_SIZE];
+	u32 src;
+	u32 dst;
+	u32 flags;
+	u32 reserved;
+} __packed;
+
+struct virtio_rpmsg_config {
+	struct rpmsg_channel_desc sta_chs[0];
+} __packed;
 
 struct virtproc_info;
 

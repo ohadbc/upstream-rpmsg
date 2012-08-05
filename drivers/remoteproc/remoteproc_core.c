@@ -419,7 +419,7 @@ static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 		return -EINVAL;
 	}
 
-	rvdev = kzalloc(sizeof(struct rproc_vdev), GFP_KERNEL);
+	rvdev = kzalloc(sizeof(struct rproc_vdev) + rsc->config_len, GFP_KERNEL);
 	if (!rvdev)
 		return -ENOMEM;
 
@@ -436,6 +436,19 @@ static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 	rvdev->dfeatures = rsc->dfeatures;
 
 	list_add_tail(&rvdev->node, &rproc->rvdevs);
+
+	/*
+	 * currently we treat the config space as unidirectional,
+	 * by handing a copy over to the driver.
+	 * TODO: the config space should be bidirectional.
+	 */
+	if (rsc->config_len) {
+		void *config_space = &rsc->vring[rsc->num_of_vrings];
+
+		memcpy(rvdev->config_space, config_space, rsc->config_len);
+
+		rvdev->config_len = rsc->config_len;
+	}
 
 	/* it is now safe to add the virtio device */
 	ret = rproc_add_virtio_dev(rvdev, rsc->id);

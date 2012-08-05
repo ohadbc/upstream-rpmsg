@@ -440,6 +440,8 @@ struct rproc_vring {
  * @vring: the vrings for this vdev
  * @dfeatures: virtio device features
  * @gfeatures: virtio guest features
+ * @config_len: length of config space (in bytes)
+ * @config_space: unidirectional rproc->host config space
  */
 struct rproc_vdev {
 	struct list_head node;
@@ -448,6 +450,8 @@ struct rproc_vdev {
 	struct rproc_vring vring[RVDEV_NUM_VRINGS];
 	unsigned long dfeatures;
 	unsigned long gfeatures;
+	int config_len;
+	char config_space[0];
 };
 
 struct rproc *rproc_get_by_name(const char *name);
