@@ -101,6 +101,8 @@ enum rpmsg_ns_flags {
  * @dst: destination (remote) address
  * @flags: channel flags
  * @reserved: currently unused (must be zero)
+ * @priv_len: length (in bytes) of private data for this channel
+ * @priv_data: channel-specific private data (optional)
  *
  * This structure contains a descriptor for a static rpmsg channel.
  * Namely, it holds the src and dst addresses of a channel, possibly
@@ -108,17 +110,25 @@ enum rpmsg_ns_flags {
  * channels (via the resource table). The rpmsg bus will access it
  * via the virtio config space.
  */
-struct rpmsg_channel_desc {
+struct rpmsg_channel_info {
 	char name[RPMSG_NAME_SIZE];
 	u32 src;
 	u32 dst;
 	u32 flags;
 	u32 reserved;
+	u32 priv_len;
+	char priv_data[0];
 } __packed;
 
 struct virtio_rpmsg_config {
-	struct rpmsg_channel_desc sta_chs[0];
+	u32 sta_chs_hdr_offset;
+	u32 sta_chs_hdr_length;
 } __packed;
+
+struct virtio_rpmsg_sta_chs_hdr {
+	u32 num;
+	u32 offset[0];
+};
 
 struct virtproc_info;
 
@@ -131,6 +141,8 @@ struct virtproc_info;
  * @dst: destination address
  * @ept: the rpmsg endpoint of this channel
  * @announce: if set, rpmsg will announce the creation/removal of this channel
+ * @priv_len: length (in bytes) of private data for this channel
+ * @priv_data: channel-specific private data (optional)
  */
 struct rpmsg_channel {
 	struct virtproc_info *vrp;
@@ -140,6 +152,8 @@ struct rpmsg_channel {
 	u32 dst;
 	struct rpmsg_endpoint *ept;
 	bool announce;
+	u32 priv_len;
+	char priv_data[0];
 };
 
 typedef void (*rpmsg_rx_cb_t)(struct rpmsg_channel *, void *, int, void *, u32);

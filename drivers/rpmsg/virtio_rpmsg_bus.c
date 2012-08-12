@@ -78,18 +78,6 @@ int get_virtproc_id(struct virtproc_info *vrp)
 }
 EXPORT_SYMBOL(get_virtproc_id);
 
-/**
- * struct rpmsg_channel_info - internal channel info representation
- * @name: name of service
- * @src: local address
- * @dst: destination address
- */
-struct rpmsg_channel_info {
-	char name[RPMSG_NAME_SIZE];
-	u32 src;
-	u32 dst;
-};
-
 #define to_rpmsg_channel(d) container_of(d, struct rpmsg_channel, dev)
 #define to_rpmsg_driver(d) container_of(d, struct rpmsg_driver, drv)
 
@@ -505,7 +493,8 @@ static struct rpmsg_channel *__rpmsg_create_channel(struct virtproc_info *vrp,
 		return NULL;
 	}
 
-	rpdev = kzalloc(sizeof(struct rpmsg_channel), GFP_KERNEL);
+	rpdev = kzalloc(sizeof(struct rpmsg_channel) + chinfo->priv_len,
+			GFP_KERNEL);
 	if (!rpdev) {
 		pr_err("kzalloc failed\n");
 		return NULL;
@@ -514,6 +503,8 @@ static struct rpmsg_channel *__rpmsg_create_channel(struct virtproc_info *vrp,
 	rpdev->vrp = vrp;
 	rpdev->src = chinfo->src;
 	rpdev->dst = chinfo->dst;
+	rpdev->priv_len = chinfo->priv_len;
+	memcpy(rpdev->priv_data, chinfo->priv_data, chinfo->priv_len);
 
 	/*
 	 * rpmsg server channels has predefined local address (for now),
@@ -919,6 +910,55 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	}
 }
 
+static int rpmsg_register_static_channels(struct virtproc_info *vrp)
+{
+	struct virtio_rpmsg_sta_chs_hdr *chs_hdr;
+	u32 chs_offset, chs_len, i;
+	struct virtio_device *vdev = vrp->vdev;
+
+	/* get offset and length of the static channels header */
+	vdev->config->get(vdev, offsetof(struct virtio_rpmsg_config,
+					 sta_chs_hdr_offset),
+			  &chs_offset, sizeof(chs_offset));
+
+	vdev->config->get(vdev, offsetof(struct virtio_rpmsg_config,
+					 sta_chs_hdr_length),
+			  &chs_len, sizeof(chs_len));
+
+	chs_hdr = kmalloc(chs_len, GFP_KERNEL);
+	if (!chs_hdr) {
+		dev_err(&vdev->dev, "kmalloc failed\n");
+		return -ENOMEM;
+	}
+
+	/* now let's get the static channels header itself */
+	vdev->config->get(vdev, chs_offset, chs_hdr, chs_len);
+
+	/* iterate over the static channels and register them */
+	for (i = 0; i < chs_hdr->num; i++) {
+		struct rpmsg_channel_info sta_ch;
+		struct rpmsg_channel *newch;
+
+		/* let's get the static channel info */
+		vdev->config->get(vdev, chs_hdr->offset[i], &sta_ch,
+				  sizeof(sta_ch));
+
+		sta_ch.name[RPMSG_NAME_SIZE - 1] = '\0';
+
+		dev_info(&vdev->dev,
+			 "creating static channel %s src 0x%x dst 0x%x\n",
+			 sta_ch.name, sta_ch.src, sta_ch.dst);
+
+		newch = __rpmsg_create_channel(vrp, &sta_ch);
+		if (!newch)
+			dev_err(&vdev->dev, "__rpmsg_create_channel failed\n");
+	}
+
+	kfree(chs_hdr);
+
+	return 0;
+}
+
 static int rpmsg_probe(struct virtio_device *vdev)
 {
 	vq_callback_t *vq_cbs[] = { rpmsg_recv_done, rpmsg_xmit_done };
@@ -1007,29 +1047,9 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		}
 	}
 
-	if (virtio_has_feature(vdev, VIRTIO_RPMSG_F_STA_CHS)) {
-		struct rpmsg_channel_desc sta_ch;
-		struct rpmsg_channel_info chinfo;
-		struct rpmsg_channel *newch;
-
-		vdev->config->get(vdev,
-				  offsetof(struct virtio_rpmsg_config, sta_chs),
-				  &sta_ch, sizeof(sta_ch));
-
-		sta_ch.name[RPMSG_NAME_SIZE - 1] = '\0';
-
-		dev_info(&vdev->dev,
-			 "creating static channel %s src 0x%x dst 0x%x\n",
-			 sta_ch.name, sta_ch.src, sta_ch.dst);
-
-		strncpy(chinfo.name, sta_ch.name, RPMSG_NAME_SIZE);
-		chinfo.src = sta_ch.src;
-		chinfo.dst = sta_ch.dst;
-
-		newch = __rpmsg_create_channel(vrp, &chinfo);
-		if (!newch)
-			dev_err(&vdev->dev, "__rpmsg_create_channel failed\n");
-	}
+	if (virtio_has_feature(vdev, VIRTIO_RPMSG_F_STA_CHS))
+		if (rpmsg_register_static_channels(vrp))
+			goto destroy_ns;
 
 	/* tell the remote processor it can start sending messages */
 	virtqueue_kick(vrp->rvq);
@@ -1038,6 +1058,9 @@ static int rpmsg_probe(struct virtio_device *vdev)
 
 	return 0;
 
+destroy_ns:
+	if (vrp->ns_ept)
+		__rpmsg_destroy_ept(vrp, vrp->ns_ept);
 free_coherent:
 	dma_free_coherent(vdev->dev.parent, RPMSG_TOTAL_BUF_SPACE, bufs_va,
 					vrp->bufs_dma);
